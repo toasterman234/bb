@@ -20,9 +20,20 @@ export const sharedViteConfig = {
   build: {
     // Skip compressed-size calculation to keep production app builds fast.
     reportCompressedSize: false,
-    // Cap at 800KB — the largest remaining chunk (workspace-checkout-display
-    // at ~1.7MB) is a known issue tracked in fix/mobile-bundle-optimization.
     chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // This tiny 85-line pure function has no deps beyond a domain type,
+          // but Vite groups it into a massive 1.7MB aggregation chunk. Force
+          // it into its own chunk so sidebar clicks don't pull in 18 co-bundled
+          // modules just to format a "Branch: main" label.
+          if (id.includes("/lib/workspace-checkout-display")) {
+            return "checkout-display";
+          }
+        },
+      },
+    },
   },
   optimizeDeps: {
     // The terminal imports xterm lazily when the panel mounts. Pre-optimize
