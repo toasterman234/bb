@@ -9,13 +9,26 @@ The mobile entry intentionally reuses bb's authoritative frontend seams:
 - `createAppQueryClient` and browser lifecycle behavior
 - `useWebSocket` realtime cache invalidation
 - `useAppTheme` plus the normal `app.css` / `theme.css` tokens
-- `useSidebarNavigation` (`sidebar-bootstrap`) for projects and thread membership
+- `useSidebarNavigation` (`sidebar-bootstrap`) for the primary projects/thread-membership path
 - bb route helpers and route-state parsing
 - `useThread`, `useThreadDetailBootstrap`, `useThreadTimeline`, and pending-interaction queries
 - `ThreadTimelineSurface` for the conversation/activity renderer
 - bb mutations for send, stop, read state, and interaction resolution
 
 This prevents the mobile UI from observing a different set of threads or interpreting thread state differently from the desktop app.
+
+## Sidebar bootstrap recovery
+
+`sidebar-bootstrap` remains the canonical and preferred navigation request. The server builds it as one aggregate response containing projects, active threads, sections, and project execution defaults. If that aggregate request fails, the phone must not become unusable.
+
+The mobile sidebar therefore has a narrow recovery path using only bb's public SDK and contracts:
+
+- `sdk.projects.list({ includePersonal: true })`
+- `sdk.threads.list({ archived: false })`
+
+Those official responses are grouped by `projectId` into the same compact project/thread view. The fallback intentionally does not invent project execution defaults; the mobile sidebar does not consume them, so `defaultExecutionOptions` remains `null`. While the canonical bootstrap is failing, the fallback refreshes periodically and the canonical query continues to retry/recover normally.
+
+This is not permission to add a second API client. The fallback exists only to keep navigation available when the aggregate bootstrap endpoint fails.
 
 ## Intentionally excluded from initial mobile startup
 
@@ -51,4 +64,4 @@ After build, verify `apps/app/dist/mobile/index.html` exists and inspect the gen
 
 ## Guardrail
 
-Do not add another `apps/mobile` application or `public/mobile/core.js` / `views.js` / `data.js` implementation. `pnpm --filter @bb/app verify:mobile` explicitly rejects the obsolete standalone-client architecture.
+Do not add another `apps/mobile` application or `public/mobile/core.js` / `views.js` / `data.js` implementation. `pnpm --filter @bb/app verify:mobile` explicitly rejects the obsolete standalone-client architecture and verifies that the bootstrap recovery path uses bb's SDK.
