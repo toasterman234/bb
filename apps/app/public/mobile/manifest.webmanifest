@@ -1,0 +1,18 @@
+{
+  "id": "/mobile/",
+  "name": "bb",
+  "short_name": "bb",
+  "description": "bb mobile workspace",
+  "start_url": "/mobile/index.html?build=shared-core-1#/",
+  "scope": "/mobile/",
+  "display": "standalone",
+  "background_color": "#151515",
+  "theme_color": "#151515",
+  "categories": ["productivity", "developer"],
+  "icons": [
+    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+    {"src": "/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

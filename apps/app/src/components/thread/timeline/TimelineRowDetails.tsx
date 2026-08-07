@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   assertNever,
   fileNameFromPath,
@@ -10,13 +10,18 @@ import { ImageLightbox } from "../../ui/image-lightbox.js";
 import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
 import { TerminalOutputBlock } from "./TerminalOutputBlock.js";
 import { TimelineDetailScroll } from "./TimelineDetailScroll.js";
-import { TimelineFileDiffBlock } from "./TimelineFileDiffBlock.js";
 import { ToolCallDetailBlock } from "./ToolCallDetailBlock.js";
 import { QuestionWorkRowBody } from "./QuestionWorkRowBody.js";
 import { WorkflowWorkRowBody } from "./WorkflowWorkRowBody.js";
 import { buildThreadHostFileContentUrl } from "@/lib/file-content-urls";
 import type { ThreadTimelineTheme } from "./types.js";
 import type { ThreadTimelineImageViewSrcResolver } from "./types.js";
+
+const TimelineFileDiffBlock = lazy(() =>
+  import("./TimelineFileDiffBlock.js").then((module) => ({
+    default: module.TimelineFileDiffBlock,
+  })),
+);
 
 export interface WorkRowBodyProps {
   resolveImageViewSrc?: ThreadTimelineImageViewSrcResolver;
@@ -138,11 +143,21 @@ export function WorkRowBody({
     case "file-change":
       return (
         <div className="space-y-2">
-          <TimelineFileDiffBlock
-            change={row.change}
-            themeType={themeType}
-            workspaceRootPath={workspaceRootPath}
-          />
+          <Suspense
+            fallback={
+              row.change.diff ? (
+                <EventCodeBlock className="rounded-md px-2 py-1.5">
+                  {row.change.diff}
+                </EventCodeBlock>
+              ) : null
+            }
+          >
+            <TimelineFileDiffBlock
+              change={row.change}
+              themeType={themeType}
+              workspaceRootPath={workspaceRootPath}
+            />
+          </Suspense>
           {row.stderr ? (
             <TimelineDetailScroll
               size="base"
