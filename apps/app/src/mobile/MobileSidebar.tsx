@@ -1,12 +1,22 @@
 import { useMemo, type ReactNode } from "react";
-import type { ProjectWithThreadsResponse } from "@bb/server-contract";
-import type { ThreadListEntry } from "@bb/domain";
+import { useQuery } from "@tanstack/react-query";
+import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@bb/domain";
+import type {
+  ProjectResponse,
+  ProjectWithThreadsResponse,
+  SidebarBootstrapResponse,
+} from "@bb/server-contract";
 import { useSidebarNavigation } from "@/hooks/queries/sidebar-navigation-query";
+import { sdk } from "@/lib/sdk";
 import { getThreadDisplayTitle } from "@/lib/thread-title";
 
 interface MobileSidebarProps {
   onOpenThread: (thread: ThreadListEntry) => void;
 }
+
+const MOBILE_NAVIGATION_FALLBACK_QUERY_KEY = [
+  "mobileSidebarNavigationFallback",
+] as const;
 
 function isUnread(thread: ThreadListEntry): boolean {
   return thread.latestAttentionAt > (thread.lastReadAt ?? 0);
@@ -96,11 +106,80 @@ function ProjectGroup({
   );
 }
 
+function projectListWithoutEmbeddedThreads(
+  value: Awaited<ReturnType<typeof sdk.projects.list>>,
+): ProjectResponse[] {
+  return value as ProjectResponse[];
+}
+
+async function fetchMobileNavigationFallback(
+  signal?: AbortSignal,
+): Promise<SidebarBootstrapResponse> {
+  // sidebar-bootstrap is the canonical path and remains the primary query.
+  // This fallback deliberately uses bb's public SDK/contracts rather than a
+  // second hand-written API client. It avoids the bootstrap route's aggregate
+  // execution-default work so one bad default/project record cannot blank the
+  // entire mobile sidebar.
+  const [projectRows, threads] = await Promise.all([
+    sdk.projects.list({ includePersonal: true, signal }),
+    sdk.threads.list({ archived: false, signal }),
+  ]);
+  const projects = projectListWithoutEmbeddedThreads(projectRows);
+  const threadsByProjectId = new Map<string, ThreadListEntry[]>();
+  for (const thread of threads) {
+    const projectThreads = threadsByProjectId.get(thread.projectId) ?? [];
+    projectThreads.push(thread);
+    threadsByProjectId.set(thread.projectId, projectThreads);
+  }
+
+  const projectsWithThreads: ProjectWithThreadsResponse[] = projects.map(
+    (project) => ({
+      ...project,
+      threads: threadsByProjectId.get(project.id) ?? [],
+      // The compact mobile sidebar does not consume create-thread defaults.
+      // Keeping this null preserves the server contract without inventing
+      // execution policy client-side.
+      defaultExecutionOptions: null,
+    }),
+  );
+  const personalProject = projectsWithThreads.find(
+    (project) => project.id === PERSONAL_PROJECT_ID,
+  );
+  if (!personalProject) {
+    throw new Error("Personal project is missing from mobile navigation fallback");
+  }
+
+  return {
+    sections: [],
+    personalProject,
+    projects: projectsWithThreads.filter(
+      (project) => project.id !== PERSONAL_PROJECT_ID,
+    ),
+  };
+}
+
+function navigationErrorMessage(error: unknown): string {
+  return error instanceof Error && error.message.trim().length > 0
+    ? error.message
+    : "Unknown navigation error";
+}
+
 export function MobileSidebar({ onOpenThread }: MobileSidebarProps) {
   const navigation = useSidebarNavigation();
-  const projects = navigation.data
-    ? [navigation.data.personalProject, ...navigation.data.projects]
+  const fallback = useQuery<SidebarBootstrapResponse>({
+    queryKey: MOBILE_NAVIGATION_FALLBACK_QUERY_KEY,
+    queryFn: ({ signal }) => fetchMobileNavigationFallback(signal),
+    enabled: navigation.isError,
+    staleTime: 2_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: navigation.isError ? 5_000 : false,
+  });
+  const navigationData = navigation.data ?? fallback.data;
+  const projects = navigationData
+    ? [navigationData.personalProject, ...navigationData.projects]
     : [];
+  const recovering = navigation.isError && fallback.isLoading;
+  const failed = navigation.isError && fallback.isError;
 
   return (
     <div className="bb-mobile-sidebar">
@@ -119,13 +198,22 @@ export function MobileSidebar({ onOpenThread }: MobileSidebarProps) {
       <main className="bb-mobile-sidebar-scroll">
         {navigation.isLoading ? (
           <div className="bb-mobile-loading">Loading threads…</div>
-        ) : navigation.isError ? (
+        ) : recovering ? (
+          <div className="bb-mobile-loading">Recovering bb navigation…</div>
+        ) : failed ? (
           <button
             className="bb-mobile-retry"
             type="button"
-            onClick={() => void navigation.refetch()}
+            onClick={() => {
+              void navigation.refetch();
+              void fallback.refetch();
+            }}
           >
             Couldn’t load bb navigation. Tap to retry.
+            <small>
+              {navigationErrorMessage(navigation.error)} · fallback: {" "}
+              {navigationErrorMessage(fallback.error)}
+            </small>
           </button>
         ) : (
           projects.map((project) => (
