@@ -6,6 +6,25 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
+    <script>
+      if (
+        window.location.pathname === "/mobile" ||
+        window.location.pathname === "/mobile/"
+      ) {
+        var mobileUrl = new URL("/mobile/index.html", window.location.origin);
+        var currentSearch = new URLSearchParams(window.location.search);
+        currentSearch.forEach(function (value, key) {
+          mobileUrl.searchParams.set(key, value);
+        });
+        if (!mobileUrl.searchParams.has("build")) {
+          mobileUrl.searchParams.set("build", "shared-core-1");
+        }
+        mobileUrl.hash = window.location.hash || "#/";
+        window.location.replace(
+          mobileUrl.pathname + mobileUrl.search + mobileUrl.hash,
+        );
+      }
+    </script>
     <meta name="theme-color" content="#ffffff" id="theme-color" />
     <!-- iOS ignores the manifest's display mode, so these opt the home-screen
          app into standalone (chrome-less) launch. The translucent status bar

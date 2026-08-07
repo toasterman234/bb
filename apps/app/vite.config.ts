@@ -22,6 +22,10 @@ export const sharedViteConfig = {
     reportCompressedSize: false,
     chunkSizeWarningLimit: 800,
     rollupOptions: {
+      // Build the full desktop application and the trimmed mobile shell from
+      // the same source tree. /mobile/index.html is a genuine second Vite
+      // entry, not a static reimplementation of bb's HTTP API.
+      input: [resolve(appDir, "index.html"), resolve(appDir, "mobile/index.html")],
       output: {
         manualChunks(id) {
           // This tiny 85-line pure function has no deps beyond a domain type,
