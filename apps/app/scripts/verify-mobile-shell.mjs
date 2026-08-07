@@ -37,6 +37,9 @@ mustContain(mobileApp, "useWebSocket", "mobile app");
 mustContain(mobileApp, "useAppTheme", "mobile app");
 mustContain(mobileApp, "useRouteState", "mobile app");
 mustContain(sidebar, "useSidebarNavigation", "mobile sidebar");
+mustContain(sidebar, "sdk.projects.list", "mobile sidebar fallback");
+mustContain(sidebar, "sdk.threads.list", "mobile sidebar fallback");
+mustContain(sidebar, "navigation.data ?? fallback.data", "mobile sidebar fallback");
 mustContain(sidebar, "personalProject", "mobile sidebar");
 mustContain(thread, "ThreadTimelineSurface", "mobile thread");
 mustContain(thread, "useThreadTimeline", "mobile thread");
@@ -65,5 +68,5 @@ for (const obsoletePath of [
 }
 
 console.log(
-  "bb mobile shell verified: shared-core entry, canonical sidebar/timeline, old standalone client absent",
+  "bb mobile shell verified: shared-core entry, canonical sidebar/timeline, SDK navigation fallback, old standalone client absent",
 );
